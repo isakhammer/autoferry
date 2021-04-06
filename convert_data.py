@@ -1,6 +1,22 @@
+import base64
+from pathlib import Path
+from tqdm import tqdm
+import numpy as np
 import json
+import urllib
+import PIL.Image as Image
+import cv2
+import torch
 import os
+import torchvision
+from IPython.display import display
+from sklearn.model_selection import train_test_split
+import seaborn as sns
+from pylab import rcParams
+import matplotlib.pyplot as plt
+from matplotlib import rc
 
+# Extract all json file paths with corresponding image path.
 cwd = os.getcwd()
 data_path = cwd  + "/label_data"
 json_file_paths = []
@@ -13,17 +29,86 @@ for subdir, dirs, files in os.walk(cwd):
         if filepath.endswith(".png"):
             image_file_paths.append(filepath)
 
+# Gather samples and find all categories
 categories = []
+data = []
 for path in json_file_paths:
     with open(path) as data_file:
-        data = json.load(data_file)
-        if "shapes" in data and len( data["shapes"] ) > 0:
-            shape = data["shapes"][0]
+        sample = json.load(data_file)
+        data.append(sample)
+        if "shapes" in sample and len( sample["shapes"] ) > 0:
+            shape = sample["shapes"][0]
             categories.extend(shape["label"])
 
-# removing duplicates from list
-categories = list(set(categories))
-print(categories)
+categories = list(set(categories)) # removing duplicates from list
+
+# Separate test and train data
+train_data, val_data = train_test_split(data, test_size=0.1)
+
+
+# Finding sample with label
+index = None
+for i in range(len(train_data)):
+    row = train_data[i]
+    if len(row["shapes"]) > 0:
+        index = i
+sample = train_data[index]
+sample_shapes = train_data[index]["shapes"][0]
+
+# decoding the image based on base64
+im_b64 = sample["imageData"]
+im_bytes = base64.b64decode(im_b64)
+im_arr = np.frombuffer(im_bytes, dtype=np.uint8)  # im_arr is one-dim Numpy array
+img = cv2.imdecode(im_arr, flags=cv2.IMREAD_COLOR)
+
+# Annotation
+w = sample['imageWidth']
+h = sample['imageHeight']
+points = sample_shapes['points']
+
+p1, p2 = points
+
+print(p1,p2)
+exit()
+x1, y1 = p1['x'] * w, p1['y'] * h
+x2, y2 = p2['x'] * w, p2['y'] * h
+
+cv2.rectangle(
+  img,
+  (int(x1), int(y1)),
+  (int(x2), int(y2)),
+  color=(0, 255, 0),
+  thickness=2
+)
+
+((label_width, label_height), _) = cv2.getTextSize(
+    label,
+    fontFace=cv2.FONT_HERSHEY_PLAIN,
+    fontScale=1.75,
+    thickness=2
+)
+cv2.rectangle(
+  img,
+  (int(x1), int(y1)),
+  (int(x1 + label_width + label_width * 0.05), int(y1 + label_height + label_height * 0.25)),
+  color=(0, 255, 0),
+  thickness=cv2.FILLED
+)
+cv2.putText(
+  img,
+  label,
+  org=(int(x1), int(y1 + label_height + label_height * 0.25)), # bottom left
+  fontFace=cv2.FONT_HERSHEY_PLAIN,
+  fontScale=1.75,
+  color=(255, 255, 255),
+  thickness=2
+)
+# exit()
+# img = urllib.request.urlopen(row["content"])
+# img = Image.open(img)
+# img = img.convert('RGB')
+# img.save("demo_image.jpeg", "JPEG")
+
 
 
 
