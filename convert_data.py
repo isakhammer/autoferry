@@ -15,14 +15,18 @@ import seaborn as sns
 from pylab import rcParams
 import matplotlib.pyplot as plt
 from matplotlib import rc
-def show_img(sample):
-    sample_shapes = sample["shapes"][0]
 
-    # decoding the image based on base64
+def b64_to_img(b64):
     im_b64 = sample["imageData"]
     im_bytes = base64.b64decode(im_b64)
     im_arr = np.frombuffer(im_bytes, dtype=np.uint8)  # im_arr is one-dim Numpy array
     img = cv2.imdecode(im_arr, flags=cv2.IMREAD_COLOR)
+
+def show_img(sample):
+    sample_shapes = sample["shapes"][0]
+    im_b64 = sample["imageData"]
+    b64_to_img(im_b64)
+    # decoding the image based on base64
 
     # Annotation
     w = sample['imageWidth']
@@ -33,7 +37,6 @@ def show_img(sample):
 
     x1, y1 = p1[0], p1[1]
     x2, y2 = p2[0], p2[1]
-    print(p1,p2)
 
     label="0"
 
@@ -72,7 +75,6 @@ def show_img(sample):
     plt.axis('off')
     plt.show()
 
-
 def get_json_file_paths():
     # Extract all json file paths with corresponding image path.
     cwd = os.getcwd()
@@ -99,24 +101,49 @@ def load_data(json_file_paths):
             if "shapes" in sample and len( sample["shapes"] ) > 0:
                 shape = sample["shapes"][0]
                 categories.extend(shape["label"])
-
     categories = list(set(categories)) # removing duplicates from list
 
     # Separate test and train data
     train_data, val_data = train_test_split(data, test_size=0.1)
-    return train_data, val_data
+    return train_data, val_data, categories
+
+def create_dataset(data, categories, dataset_type):
+    images_path = Path(f"data/images/{dataset_type}")
+    images_path.mkdir(parents=True, exist_ok=True)
+    labels_path = Path(f"data/labels/{dataset_type}")
+    labels_path.mkdir(parents=True, exit_ok=True)
+    for img_id, row in enumerate(tqdm(data)):
+        print(img_id, row)
+
+    # image_name = f"{img_id}.jpeg"
+    # img = urllib.request.urlopen(row["content"])
+    # img = Image.open(img)
+    # img = img.convert("RGB")
+    # img.save(str(images_path / image_name), "JPEG")
+    # label_name = f"{img_id}.txt"
+    # with (labels_path / label_name).open(mode="w") as label_file:
+    #   for a in row['annotation']:
+    #     for label in a['label']:
+    #       category_idx = categories.index(label)
+    #       points = a['points']
+    #       p1, p2 = points
+    #       x1, y1 = p1['x'], p1['y']
+    #       x2, y2 = p2['x'], p2['y']
+    #       bbox_width = x2 - x1
+    #       bbox_height = y2 - y1
+          # label_file.write(
+          #   f"{category_idx} {x1 + bbox_width / 2} {y1 + bbox_height / 2} {bbox_width} {bbox_height}\n"
 
 if __name__=="__main__":
-    train_data, val_data = load_data(get_json_file_paths())
+    train_data, val_data, categories = load_data(get_json_file_paths())
 
-    # Finding sample with label
+    # Finding a sample which is labelled
     index = None
     for i in range(len(train_data)):
         row = train_data[i]
         if len(row["shapes"]) > 0:
             index = i
     sample = train_data[index]
-
 
     show_img(sample)
 
